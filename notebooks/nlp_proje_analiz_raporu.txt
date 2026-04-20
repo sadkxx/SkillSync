@@ -1,0 +1,86 @@
+==================================================
+            NLP PROJE TEST ANALİZ RAPORU
+==================================================
+ARANAN HEDEF BECERİLER: ['management', 'communication']
+==================================================
+
+ANALİZ EDİLEN: Ali Yılmaz (CV #1)
+Bulunan Beceriler: ['mobile', 'should', 'attitude']
+Eksik Beceriler  : ['management', 'communication']
+----------------------------------------
+ANALİZ EDİLEN: Zeynep Çelik (CV #2)
+Bulunan Beceriler: ['information', 'communication', 'projects', 'microsoft', 'technologies', 'software', 'javascript', 'development', 'services', 'professional']
+Eksik Beceriler  : ['management']
+----------------------------------------
+ANALİZ EDİLEN: Can Arslan (CV #3)
+Bulunan Beceriler: []
+Eksik Beceriler  : ['management', 'communication']
+----------------------------------------
+ANALİZ EDİLEN: Selin Yılmaz (CV #4)
+Bulunan Beceriler: ['analysis', 'projects', 'social', 'creative', 'people', 'services', 'highly', 'managing', 'professional']
+Eksik Beceriler  : ['management', 'communication']
+----------------------------------------
+ANALİZ EDİLEN: Can Şahin (CV #5)
+Bulunan Beceriler: ['environment', 'communication', 'multiple', 'organizational', 'development', 'highly']
+Eksik Beceriler  : ['management']
+----------------------------------------
+ANALİZ EDİLEN: Zeynep Öztürk (CV #6)
+Bulunan Beceriler: ['information', 'education', 'analysis', 'support', 'science', 'technology', 'required', 'computer', 'development', 'related', 'systems', 'engineering']
+Eksik Beceriler  : ['management', 'communication']
+----------------------------------------
+ANALİZ EDİLEN: Ali Yılmaz (CV #7)
+Bulunan Beceriler: ['analysis', 'science', 'product', 'software', 'computer', 'development', 'related', 'engineering']
+Eksik Beceriler  : ['management', 'communication']
+----------------------------------------
+ANALİZ EDİLEN: Can Demir (CV #8)
+Bulunan Beceriler: ['business', 'system', 'management', 'projects', 'managing']
+Eksik Beceriler  : ['communication']
+----------------------------------------
+ANALİZ EDİLEN: Can Arslan (CV #9)
+Bulunan Beceriler: ['through', 'communication', 'passion', 'computer']
+Eksik Beceriler  : ['management']
+----------------------------------------
+ANALİZ EDİLEN: Selin Şahin (CV #10)
+Bulunan Beceriler: ['system', 'attention', 'science', 'similar', 'communication', 'passion', 'multiple', 'university', 'detail', 'testing', 'software', 'computer', 'services', 'problem', 'record', 'attitude', 'solving', 'engineering']
+Eksik Beceriler  : ['management']
+----------------------------------------
+ANALİZ EDİLEN: Ayşe Demir (CV #11)
+Bulunan Beceriler: ['management', 'product', 'technologies', 'customers', 'software', 'managing', 'professional']
+Eksik Beceriler  : ['communication']
+----------------------------------------
+ANALİZ EDİLEN: Merve Demir (CV #12)
+Bulunan Beceriler: ['education', 'people']
+Eksik Beceriler  : ['management', 'communication']
+----------------------------------------
+ANALİZ EDİLEN: Selin Şahin (CV #13)
+Bulunan Beceriler: ['management', 'communication', 'client']
+Eksik Beceriler  : []
+----------------------------------------
+ANALİZ EDİLEN: Selin Şahin (CV #14)
+Bulunan Beceriler: ['business', 'system', 'management', 'software', 'effectively', 'record']
+Eksik Beceriler  : ['communication']
+----------------------------------------
+ANALİZ EDİLEN: Can Arslan (CV #15)
+Bulunan Beceriler: ['business']
+Eksik Beceriler  : ['management', 'communication']
+----------------------------------------
+ANALİZ EDİLEN: Ali Kaya (CV #16)
+Bulunan Beceriler: ['science', 'technology', 'client', 'software', 'application', 'required', 'computer', 'development', 'engineering']
+Eksik Beceriler  : ['management', 'communication']
+----------------------------------------
+ANALİZ EDİLEN: Mehmet Arslan (CV #17)
+Bulunan Beceriler: ['education', 'through', 'people']
+Eksik Beceriler  : ['management', 'communication']
+----------------------------------------
+ANALİZ EDİLEN: Can Kaya (CV #18)
+Bulunan Beceriler: ['business', 'background', 'management', 'environment', 'communication', 'equivalent', 'multiple', 'windows', 'effectively', 'required', 'related', 'services']
+Eksik Beceriler  : []
+----------------------------------------
+ANALİZ EDİLEN: Mehmet Arslan (CV #19)
+Bulunan Beceriler: ['support', 'communication', 'professional']
+Eksik Beceriler  : ['management']
+----------------------------------------
+ANALİZ EDİLEN: Mehmet Şahin (CV #20)
+Bulunan Beceriler: ['management', 'product', 'detail', 'effectively', 'design', 'development', 'engineering']
+Eksik Beceriler  : ['communication']
+----------------------------------------
