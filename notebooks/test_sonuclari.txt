@@ -1,0 +1,100 @@
+CV #1
+En uyumlu ilan: Senior Ruby on Rails Developer
+Uyum skoru: %69.1
+Eksik beceriler: ['sql', 'database', 'git']
+========================================
+CV #2
+En uyumlu ilan: Big Data - Hadoop Designer
+Uyum skoru: %69.1
+Eksik beceriler: []
+========================================
+CV #3
+En uyumlu ilan: Front-End Engineer
+Uyum skoru: %40.3
+Eksik beceriler: ['html', 'javascript', 'java', 'css']
+========================================
+CV #4
+En uyumlu ilan: Process Engineer - Environmental laws - TX
+Uyum skoru: %67.3
+Eksik beceriler: ['aws']
+========================================
+CV #5
+En uyumlu ilan: E&IC Engineer
+Uyum skoru: %53.8
+Eksik beceriler: []
+========================================
+CV #6
+En uyumlu ilan: Sr.Java Developer jobs in Utah
+Uyum skoru: %62.0
+Eksik beceriler: ['javascript', 'java', 'oop']
+========================================
+CV #7
+En uyumlu ilan: Geospatial Surveyor
+Uyum skoru: %60.5
+Eksik beceriler: ['git']
+========================================
+CV #8
+En uyumlu ilan: Big Data - Hadoop Designer
+Uyum skoru: %55.9
+Eksik beceriler: ['oop']
+========================================
+CV #9
+En uyumlu ilan: Estimator
+Uyum skoru: %42.1
+Eksik beceriler: ['spi']
+========================================
+CV #10
+En uyumlu ilan: Procurement Officer
+Uyum skoru: %62.3
+Eksik beceriler: []
+========================================
+CV #11
+En uyumlu ilan: Junior Interaction Designer
+Uyum skoru: %57.8
+Eksik beceriler: ['spi', 'communication', 'agile', 'git']
+========================================
+CV #12
+En uyumlu ilan: Senior Account Manager
+Uyum skoru: %76.1
+Eksik beceriler: ['uart']
+========================================
+CV #13
+En uyumlu ilan: Environmental Engineer - Knowledge of Environmental law - TX
+Uyum skoru: %60.2
+Eksik beceriler: ['spi', 'aws']
+========================================
+CV #14
+En uyumlu ilan: Senior Application Developer
+Uyum skoru: %67.6
+Eksik beceriler: []
+========================================
+CV #15
+En uyumlu ilan: SR Programmer Analyst
+Uyum skoru: %51.9
+Eksik beceriler: ['communication']
+========================================
+CV #16
+En uyumlu ilan: Software Engineer (Payroll)
+Uyum skoru: %57.7
+Eksik beceriler: ['html', 'communication', 'agile', 'sql']
+========================================
+CV #17
+En uyumlu ilan: Senior Account Manager
+Uyum skoru: %68.4
+Eksik beceriler: ['uart']
+========================================
+CV #18
+En uyumlu ilan: Software Engineer Intern
+Uyum skoru: %69.6
+Eksik beceriler: ['real-time']
+========================================
+CV #19
+En uyumlu ilan: Web Developer
+Uyum skoru: %60.8
+Eksik beceriler: ['html', 'javascript', 'java', 'css', 'sql']
+========================================
+CV #20
+En uyumlu ilan: Administrative Assistant (Digital, Internet, Mobile)
+Uyum skoru: %57.5
+Eksik beceriler: ['git']
+========================================
