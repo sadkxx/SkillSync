@@ -6,23 +6,51 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import re
 import os
+from pathlib import Path
+from typing import Optional
 
 SKILL_LIST = [
-    "python", "c", "c#", "c++", "java", "javascript", "sql",
-    "ms sql", "git", "github", "linux", "ubuntu", "vs code",
-    "visual studio", "esp32", "freertos", "uart", "i2c", "spi",
-    "embedded systems", "sensor", "iot", "cybersecurity",
-    "object-oriented programming", "oop", "database",
-    "machine learning", "deep learning", "nlp", "tensorflow",
-    "pytorch", "docker", "flask", "django", "react", "aws",
-    "html", "css", "agile", "scrum", "communication",
-    "teamwork", "leadership", "project management",
-    "real-time", "networking", "rtos",
-    "microcontroller", "firmware", "driver"
+# CV'dekiler
+"python", "c", "c#", "c++", "java", "javascript", "sql",
+"ms sql", "git", "github", "linux", "ubuntu", "vs code",
+"visual studio", "esp32", "freertos", "uart", "i2c", "spi",
+"embedded systems", "sensor", "iot", "cybersecurity",
+"object-oriented programming", "oop", "database",
+# Genel teknik
+"machine learning", "deep learning", "nlp", "tensorflow",
+"pytorch", "docker", "flask", "django", "react", "aws",
+"html", "css", "agile", "scrum", "communication",
+"teamwork", "leadership", "project management",
+"real-time", "networking", "freertos", "rtos",
+"microcontroller", "firmware", "driver"
+
+"python", "java", "javascript",
+    "fastapi", "django", "flask",
+    "react", "node", "express",
+    "sql", "postgresql", "mongodb",
+    "docker", "kubernetes",
+    "aws", "gcp", "azure",
+    "git", "linux",
+    "machine learning", "deep learning",
+    "nlp", "pandas", "numpy",
+    "scikit-learn", "tensorflow", "pytorch",
+    "rest api", "microservices"
 ]
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CSV_PATH = os.path.join(BASE_DIR, "fake_job_postings.csv")
+APP_DIR = Path(__file__).resolve().parents[1]  # backend/app
+REPO_DIR = APP_DIR.parents[1]  # repo root (.. / ..)
+
+# Prefer an explicit path if provided, otherwise fall back to common repo locations.
+_csv_env = os.getenv("SKILLSYNC_JOB_POSTINGS_CSV")
+CSV_PATH = str(
+    Path(_csv_env).expanduser().resolve()
+    if _csv_env
+    else (
+        APP_DIR / "fake_job_postings.csv"
+        if (APP_DIR / "fake_job_postings.csv").exists()
+        else (REPO_DIR / "data" / "fake_job_postings.csv")
+    )
+)
 
 print("Model yükleniyor...")
 model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
@@ -41,7 +69,13 @@ print("Hazır!")
 
 def extract_skills(text):
     text = text.lower()
-    return list(set([s for s in SKILL_LIST if s in text]))
+    found = []
+    for skill in SKILL_LIST:
+        # Match whole terms instead of substrings (e.g. avoid matching "go" inside "looking")
+        pattern = re.escape(skill).replace(r"\ ", r"\s+")
+        if re.search(rf"(?<!\w){pattern}(?!\w)", text):
+            found.append(skill)
+    return list(set(found))
 
 def preprocess(text):
     text = text.lower()
@@ -97,11 +131,44 @@ def analiz_raporu(cv_text, cv_skills, df_scored):
         "top_sektorler": top_sektorler
     }
 
-def cv_analiz(cv_text):
+def _target_job_analiz(cv_text: str, job_text: str):
+    cv_skills = extract_skills(cv_text)
+    job_skills = extract_skills(job_text)
+
+    matched = [s for s in job_skills if s in cv_skills]
+    missing = [s for s in job_skills if s not in cv_skills]
+
+    cv_embedding = model.encode([preprocess(cv_text)])
+    job_embedding = model.encode([preprocess(job_text)])
+    sim = float(cosine_similarity(cv_embedding, job_embedding)[0][0])
+    # cosine similarity is [-1, 1]; scale to [0, 1] for percentage output
+    sim = (sim + 1) / 2
+    sim = max(0.0, min(sim, 1.0))
+
+    improved = min(sim + len(missing) * 0.04, 1.0)
+
+    return {
+        "match_percentage": round(sim * 100, 1),
+        "matched_skills": matched,
+        "missing_skills": missing,
+        "improved_match": round(improved * 100, 1),
+    }
+
+
+def cv_analiz(cv_text: str, job_text: Optional[str] = None):
     cv_skills = extract_skills(cv_text)
     cv_embedding = model.encode([preprocess(cv_text)])
     scores = cosine_similarity(cv_embedding, job_embeddings)[0]
+    # cosine similarity is [-1, 1]; scale to [0, 1] for percentage output
+    scores = (scores + 1) / 2
+    scores = [max(0.0, min(float(s), 1.0)) for s in scores]
+
     df_scored = sample_df.copy()
     df_scored["uyum_skoru"] = scores
     df_scored = df_scored.sort_values("uyum_skoru", ascending=False).reset_index(drop=True)
-    return analiz_raporu(cv_text, cv_skills, df_scored)
+    dataset_result = analiz_raporu(cv_text, cv_skills, df_scored)
+
+    if job_text and str(job_text).strip():
+        dataset_result["target_job_analysis"] = _target_job_analiz(cv_text, job_text)
+
+    return dataset_result
