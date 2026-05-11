@@ -27,4 +27,5 @@ build/
 
 # Misc
 .cache/
-.tmp/
+.tmp/backend/skillsync.db
+backend/.venv/
