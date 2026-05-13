@@ -1,9 +1,16 @@
 # Dependencies
 node_modules/
-__pycache__/
-*.pyc
+backend/.venv/
 venv/
 env/
+
+# Python cache and tooling
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
 
 # Environment variables
 .env
@@ -22,7 +29,10 @@ Thumbs.db
 
 # Build outputs
 dist/
+frontend/dist/
+frontend/.vite/
 build/
+coverage/
 *.log
 
 # Misc

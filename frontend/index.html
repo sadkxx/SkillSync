@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SkillSync</title>
+    <link id="app-favicon" rel="icon" href="/favicon.ico" />
+    <script>
+      (() => {
+        const favicon = document.getElementById("app-favicon");
+        const darkModeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+        const updateFavicon = () => {
+          favicon.href = darkModeQuery.matches ? "/favicon_2.ico" : "/favicon.ico";
+        };
+
+        updateFavicon();
+
+        if (darkModeQuery.addEventListener) {
+          darkModeQuery.addEventListener("change", updateFavicon);
+        } else {
+          darkModeQuery.addListener(updateFavicon);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
