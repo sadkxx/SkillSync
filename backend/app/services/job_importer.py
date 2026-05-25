@@ -1,4 +1,5 @@
 import csv
+import logging
 from pathlib import Path
 
 from sqlalchemy import select
@@ -8,6 +9,8 @@ from app.models.job import Job
 from app.services.geocoding_service import geocode_location
 from app.services.location_parser import normalize_location
 
+logger = logging.getLogger("skillsync.importer")
+
 
 def import_jobs_from_csv(
     db: Session,
@@ -15,15 +18,13 @@ def import_jobs_from_csv(
     limit: int = 500,
     source: str = "dataset",
 ) -> int:
-    """
-    Imports jobs into DB and geocodes only during import.
-    Safe to call multiple times; it upserts by (source, source_id).
-    """
     path = Path(csv_path)
     if not path.exists():
         return 0
 
     affected = 0
+    geocode_failures = 0
+
     with path.open(newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -34,10 +35,14 @@ def import_jobs_from_csv(
                 source_id = str(row.get("job_id") or "").strip()
                 if not source_id:
                     continue
+
                 title = (row.get("title") or "").strip() or "Unknown"
                 company = (row.get("company_profile") or "").strip() or None
                 location_raw = (row.get("location") or "").strip() or None
                 industry = (row.get("industry") or "").strip() or None
+                description = (row.get("description") or "").strip() or None
+                requirements = (row.get("requirements") or "").strip() or None
+                full_text = " ".join(filter(None, [title, description, requirements]))
 
                 job = (
                     db.execute(
@@ -49,9 +54,14 @@ def import_jobs_from_csv(
 
                 clean_location = normalize_location(location_raw) if location_raw else None
                 lat, lon = (None, None)
-                # Geocode only during ingest (seed/import). Never per request.
                 if clean_location:
-                    lat, lon = geocode_location(clean_location)
+                    try:
+                        lat, lon = geocode_location(clean_location)
+                        if lat is None and lon is None:
+                            geocode_failures += 1
+                    except Exception as exc:
+                        geocode_failures += 1
+                        logger.debug("Geocode skipped for %s: %s", clean_location, exc)
 
                 if job is None:
                     job = Job(
@@ -66,6 +76,9 @@ def import_jobs_from_csv(
                         industry=industry,
                         latitude=lat,
                         longitude=lon,
+                        description=description,
+                        requirements=requirements,
+                        full_text=full_text,
                     )
                     db.add(job)
                 else:
@@ -75,7 +88,9 @@ def import_jobs_from_csv(
                     job.location_normalized = clean_location
                     job.location = clean_location or location_raw
                     job.industry = industry
-                    # only fill coordinates if we got a fresh geocode result
+                    job.description = description
+                    job.requirements = requirements
+                    job.full_text = full_text
                     if lat is not None and lon is not None:
                         job.latitude = lat
                         job.longitude = lon
@@ -83,10 +98,19 @@ def import_jobs_from_csv(
                 affected += 1
                 if affected >= limit:
                     break
-            except Exception:
+
+            except Exception as exc:
+                logger.warning("Skipping CSV row (job_id=%s): %s", row.get("job_id"), exc)
                 continue
 
     if affected:
         db.commit()
-    return affected
 
+    if geocode_failures:
+        logger.info(
+            "Import finished: %s rows, %s locations without coordinates",
+            affected,
+            geocode_failures,
+        )
+
+    return affected

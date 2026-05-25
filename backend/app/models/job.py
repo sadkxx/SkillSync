@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import Float, Integer, String, UniqueConstraint
+from sqlalchemy import Float, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -33,3 +33,6 @@ class Job(Base):
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    requirements: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    full_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

@@ -1,13 +1,10 @@
-import os
 from typing import Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
+from app.core.config import DATABASE_URL
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./skillsync.db")
-
-# sqlite needs this flag for multithreaded apps like FastAPI
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
@@ -22,4 +19,3 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
-
