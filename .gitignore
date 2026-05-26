@@ -37,4 +37,6 @@ coverage/
 
 # Misc
 .cache/
-.tmp/
+.tmp/backend/skillsync.db
+backend/skillsync.db
+backend/.venv/
