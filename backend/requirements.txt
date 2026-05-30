@@ -58,3 +58,5 @@ tzdata==2026.1
 urllib3==2.6.3
 uvicorn==0.39.0
 alembic==1.16.2
+pytest==8.3.5
+httpx==0.28.1

@@ -192,13 +192,17 @@ def seed_jobs(
                 "affected": affected,
                 "csv_path": csv_path,
                 "limit_applied": effective_limit,
+                "message": "Dataset jobs imported successfully",
             }
             if warning:
                 payload["warning"] = warning
             return payload
 
         if provider == "jobspy":
-            jobs = JobSpyProvider().fetch(query=query, location=location, limit=effective_limit)
+            raise HTTPException(
+                status_code=400,
+                detail="jobspy provider is not enabled for demo. Use provider=dataset.",
+            )
             affected = ingest_external_jobs(db, source="jobspy", jobs=jobs, geocode=True)
             invalidate_corpus_cache()
             payload = {
