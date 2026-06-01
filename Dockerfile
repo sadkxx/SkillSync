@@ -11,8 +11,12 @@ COPY backend/requirements.txt /app/backend/requirements.txt
 RUN python -m pip install --upgrade pip \
     && python -m pip install -r /app/backend/requirements.txt
 
+ARG DATASET_URL=https://raw.githubusercontent.com/sadkxx/SkillSync/master/data/fake_job_postings.csv
+
+RUN mkdir -p /app/data \
+    && python -c "import os, urllib.request; urllib.request.urlretrieve(os.environ.get('DATASET_URL', '${DATASET_URL}'), '/app/data/fake_job_postings.csv')"
+
 COPY backend /app/backend
-COPY data /app/data
 
 WORKDIR /app/backend
 
