@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router as api_router
 from app.api.jobs import router as jobs_router
+from app.api.health import router as health_router
 from app.core.config import ALLOWED_ORIGINS, RUN_SEED_ON_STARTUP, SKILLSYNC_JOB_POSTINGS_CSV
 from app.core.db import Base, SessionLocal, engine
 from app.core.logging_config import setup_logging
@@ -22,6 +23,7 @@ app.add_middleware(
 
 app.include_router(api_router)
 app.include_router(jobs_router)
+app.include_router(health_router)
 
 
 @app.on_event("startup")
