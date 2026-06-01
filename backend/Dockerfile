@@ -18,4 +18,6 @@ RUN mkdir -p /app/data \
 
 COPY . /app/backend
 
-CMD ["sh", "-c", "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+RUN chmod +x /app/backend/start.sh
+
+CMD ["/app/backend/start.sh"]
