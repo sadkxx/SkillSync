@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router as api_router
@@ -24,6 +26,16 @@ app.add_middleware(
 app.include_router(api_router)
 app.include_router(jobs_router)
 app.include_router(health_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": "Invalid request body. /analyze expects JSON; /upload-cv expects multipart form-data."
+        },
+    )
 
 
 @app.on_event("startup")

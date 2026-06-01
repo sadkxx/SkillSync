@@ -11,7 +11,11 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from sqlalchemy.orm import Session
 
-from app.core.config import ANALYSIS_CORPUS_LIMIT, CORPUS_CACHE_MAX_ENTRIES
+from app.core.config import (
+    ANALYSIS_CORPUS_LIMIT,
+    CORPUS_CACHE_MAX_ENTRIES,
+    SENTENCE_MODEL_NAME,
+)
 from app.core import corpus_cache
 from app.services.job_corpus import build_corpus_cache_key, resolve_analysis_dataframe
 
@@ -94,8 +98,8 @@ _COUNTRY_COORDS = {
 def _get_model() -> SentenceTransformer:
     global _model
     if _model is None:
-        logger.info("Loading SentenceTransformer model...")
-        _model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+        logger.info("Loading SentenceTransformer model: %s", SENTENCE_MODEL_NAME)
+        _model = SentenceTransformer(SENTENCE_MODEL_NAME)
     return _model
 
 
