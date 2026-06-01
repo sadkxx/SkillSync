@@ -864,18 +864,62 @@ function LandingPage({ pathname, onNavigate }) {
               </div>
             </div>
 
-            <div className="absolute bottom-0 right-0 w-[72%] overflow-hidden rounded-[30px] border border-white/12 bg-white shadow-[0_28px_80px_rgba(0,0,0,0.28)]">
-              <div className="mock-map relative h-64">
-                <div className="absolute left-5 top-5 rounded-2xl bg-ink px-4 py-3 text-white shadow-panel">
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/45">
-                    En yakın uygun ilan
+            <div className="absolute bottom-0 right-0 w-[78%] overflow-hidden rounded-[30px] border border-white/12 bg-white shadow-[0_28px_80px_rgba(0,0,0,0.28)]">
+              <div className="flex items-center justify-between gap-3 border-b border-ink/8 bg-[#fffaf2] px-5 py-4 text-ink">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate/55">
+                    Konuma göre eşleşmeler
                   </p>
                   <p className="mt-1 font-display text-xl font-semibold">
-                    SabancıDx
+                    İstanbul çevresi
                   </p>
                 </div>
-                <div className="absolute left-[58%] top-[55%] flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-white bg-ember text-white shadow-panel">
+                <div className="rounded-full bg-moss/24 px-3 py-1.5 text-xs font-bold text-ink">
+                  3 ilan
+                </div>
+              </div>
+              <div className="mock-map relative h-80">
+                <span className="map-district left-[12%] top-[18%]">Maslak</span>
+                <span className="map-district right-[11%] top-[14%]">Levent</span>
+                <span className="map-district bottom-[30%] left-[18%]">Kadıköy</span>
+                <span className="map-route map-route-primary" />
+                <span className="map-route map-route-secondary" />
+                <span className="map-distance left-[37%] top-[37%]">4.2 km</span>
+                <span className="map-distance right-[19%] top-[30%]">2.8 km</span>
+
+                <div className="absolute left-[23%] top-[48%] z-20 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-[3px] border-white bg-moss text-ink shadow-panel ring-4 ring-moss/20">
+                  <LocateFixed size={18} />
+                </div>
+                <div className="absolute left-[58%] top-[42%] z-20 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-white bg-ember text-white shadow-panel ring-4 ring-ember/18">
                   <MapPin size={24} fill="currentColor" />
+                </div>
+                <div className="absolute left-[76%] top-[33%] z-20 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-[3px] border-white bg-gold text-ink shadow-panel ring-4 ring-gold/20">
+                  <MapPin size={18} fill="currentColor" />
+                </div>
+
+                <div className="absolute bottom-4 left-4 right-4 z-30 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/80 bg-white/92 p-3 text-ink shadow-[0_12px_32px_rgba(18,26,47,0.12)] backdrop-blur">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-ember">
+                      En yakın uygun ilan
+                    </p>
+                    <p className="mt-1 font-display text-lg font-semibold leading-tight">
+                      Qullt Inc.
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-slate">
+                      4.2 km · %91 uyum
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/80 bg-white/86 p-3 text-ink shadow-[0_12px_32px_rgba(18,26,47,0.1)] backdrop-blur">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate/60">
+                      Alternatif rota
+                    </p>
+                    <p className="mt-1 font-display text-lg font-semibold leading-tight">
+                      UI Engineer
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-slate">
+                      Hibrit · %84 uyum
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -970,7 +1014,7 @@ function LandingPage({ pathname, onNavigate }) {
 
             <div className="grid gap-4 bg-[#eef7f1] p-5 md:grid-cols-2">
               {[
-                ["SabancıDx", "Frontend Developer", "%86", "4.2 km"],
+                ["Qullt Inc.", "Frontend Developer", "%86", "4.2 km"],
                 ["Türkiye Finans", "UI Engineer", "%81", "6.8 km"]
               ].map(([company, role, score, distance]) => (
                 <div key={company} className="rounded-[26px] bg-white p-5 shadow-sm">
