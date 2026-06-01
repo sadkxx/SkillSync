@@ -1,31 +1,42 @@
-import os
-from pathlib import Path
-
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router as api_router
 from app.api.jobs import router as jobs_router
+from app.api.health import router as health_router
+from app.core.config import ALLOWED_ORIGINS, RUN_SEED_ON_STARTUP, SKILLSYNC_JOB_POSTINGS_CSV
 from app.core.db import Base, SessionLocal, engine
+from app.core.logging_config import setup_logging
+from app.core.startup import run_startup_checks
+
+setup_logging()
 
 app = FastAPI(title="SkillSync API")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(api_router)
 app.include_router(jobs_router)
+app.include_router(health_router)
 
 
 @app.on_event("startup")
 def _startup():
-    # Create tables (Alembic is recommended for production, but this keeps dev simple)
     Base.metadata.create_all(bind=engine)
+    run_startup_checks()
 
-    # NOTE: seeding/import is explicit via POST /jobs/seed.
-    # For local convenience you can auto-seed by setting RUN_SEED_ON_STARTUP=1.
-    if os.getenv("RUN_SEED_ON_STARTUP") == "1":
+    if RUN_SEED_ON_STARTUP:
         from app.services.job_importer import import_jobs_from_csv
+        from app.services.model import invalidate_corpus_cache
 
-        app_dir = Path(__file__).resolve().parent  # backend/app
-        repo_dir = app_dir.parents[1]
-        default_csv = str(repo_dir / "data" / "fake_job_postings.csv")
-        csv_path = os.getenv("SKILLSYNC_JOB_POSTINGS_CSV", default_csv)
         with SessionLocal() as db:
-            import_jobs_from_csv(db, csv_path=csv_path, limit=500, source="dataset")
+            import_jobs_from_csv(
+                db, csv_path=SKILLSYNC_JOB_POSTINGS_CSV, limit=100, source="dataset"
+            )
+            invalidate_corpus_cache()

@@ -28,6 +28,7 @@ pdfplumber==0.11.8
 pillow==11.3.0
 pycparser==2.23
 pydantic==2.12.5
+python-dotenv==1.1.0
 pydantic_core==2.41.5
 PyPDF2==3.0.1
 pypdfium2==5.6.0
@@ -57,3 +58,5 @@ tzdata==2026.1
 urllib3==2.6.3
 uvicorn==0.39.0
 alembic==1.16.2
+pytest==8.3.5
+httpx==0.28.1
