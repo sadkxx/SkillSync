@@ -13,7 +13,7 @@ const plans = [
       "1 CV ve ilan analizi",
       "Uyum skoru ve kısa özet",
       "Eksik beceri listesi",
-      "Mock yakın ilan önerileri"
+      "Yakın ilan önerileri"
     ]
   },
   {
@@ -36,14 +36,14 @@ const plans = [
     price: "399 TL",
     period: "aylık",
     description: "Koçlar, bootcamp ekipleri ve yoğun aday takibi yapan ekipler için.",
-    cta: "Demo iste",
+    cta: "Ekiple görüş",
     featured: false,
     features: [
       "Ekip paneli ve aday listesi",
       "Toplu CV değerlendirme",
       "Rol bazlı rapor şablonları",
       "Öncelikli destek",
-      "API entegrasyonu hazırlığı"
+      "Ekip entegrasyonu"
     ]
   }
 ];
@@ -233,12 +233,11 @@ export default function Pricing({ onNavigate }) {
               </div>
               <div>
                 <h3 className="font-display text-2xl font-semibold">
-                  Backend bağlanınca plan limitleri canlı yönetilecek.
+                  İhtiyacına göre tek rapordan ekip kullanımına geç.
                 </h3>
                 <p className="mt-3 text-sm leading-7 text-white/62">
-                  Şimdilik ekran mock ürün paketlerini gösteriyor; ödeme,
-                  kullanıcı limiti ve ekip paneli entegrasyonları backend ile
-                  birlikte netleşecek.
+                  Başlangıç planıyla analizi dene; düzenli başvuru takibi ve
+                  ekip değerlendirmeleri için daha kapsamlı paketlere geçebilirsin.
                 </p>
               </div>
             </div>

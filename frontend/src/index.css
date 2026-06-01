@@ -31,6 +31,121 @@ body {
   background: rgba(255, 122, 89, 0.24);
 }
 
+.skillsync-leaflet-map {
+  min-height: 100%;
+  background: #dfeee7;
+}
+
+.skillsync-leaflet-map .leaflet-control-attribution {
+  font-size: 10px;
+}
+
+.skillsync-job-marker,
+.skillsync-user-marker {
+  display: grid;
+  place-items: center;
+  border: 3px solid #ffffff;
+  box-shadow: 0 10px 24px rgba(18, 26, 47, 0.28);
+  transform: translateZ(0);
+}
+
+.skillsync-job-marker {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 9999px 9999px 9999px 6px;
+  background: #ff7a59;
+  color: #ffffff;
+  transform: rotate(-45deg);
+}
+
+.skillsync-job-marker span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-size: 12px;
+  font-weight: 800;
+  transform: rotate(45deg);
+}
+
+.skillsync-user-marker {
+  width: 42px;
+  height: 42px;
+  border-radius: 9999px;
+  background: #75b798;
+  color: #121a2f;
+}
+
+.skillsync-user-marker span {
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.skillsync-map-tooltip,
+.skillsync-map-popup .leaflet-popup-content-wrapper {
+  border: 1px solid rgba(18, 26, 47, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #121a2f;
+  box-shadow: 0 18px 44px rgba(18, 26, 47, 0.18);
+}
+
+.skillsync-map-tooltip {
+  max-width: min(280px, calc(100vw - 32px));
+  padding: 0;
+  white-space: normal;
+}
+
+.skillsync-map-tooltip::before {
+  display: none;
+}
+
+.skillsync-map-popup .leaflet-popup-content {
+  margin: 0;
+  max-width: min(280px, calc(100vw - 48px));
+}
+
+.skillsync-map-tooltip-body {
+  display: grid;
+  gap: 4px;
+  min-width: min(190px, calc(100vw - 56px));
+  max-width: min(260px, calc(100vw - 56px));
+  max-height: 170px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.skillsync-map-tooltip-body strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #121a2f;
+  font-size: 13px;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.skillsync-map-tooltip-body span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #5b6476;
+  font-size: 12px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.skillsync-map-tooltip-body em {
+  color: #ff7a59;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
 .landing-hero {
   min-height: clamp(640px, 76vh, 820px);
 }

@@ -10,8 +10,7 @@ client = TestClient(app)
 
 def setup_function():
     """Her testten önce session temizle."""
-    cv_session.set_cv(None)
-    cv_session.set_job_text(None)
+    cv_session.clear_all()
 
 
 def test_analyze_without_cv_returns_400():

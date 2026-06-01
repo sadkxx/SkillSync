@@ -2,11 +2,35 @@ import { mockAnalysis } from "../data/mockAnalysis";
 
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === "true";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const SESSION_STORAGE_KEY = "skillsync_session_id";
 
 function wait(ms) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);
   });
+}
+
+function createSessionId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `skillsync-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getSessionId() {
+  try {
+    const existing = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (existing) {
+      return existing;
+    }
+
+    const created = createSessionId();
+    window.localStorage.setItem(SESSION_STORAGE_KEY, created);
+    return created;
+  } catch {
+    return createSessionId();
+  }
 }
 
 function buildMockAnalysis(jobText, fileName) {
@@ -68,6 +92,52 @@ function buildMarketInfo(analysis) {
   return parts.join(" ") || "Piyasa özeti hazırlanamadı.";
 }
 
+function normalizeJob(job) {
+  const displayCompany =
+    job.display_company ||
+    job.company_name ||
+    job.company ||
+    job.industry ||
+    "Dataset ilanı";
+
+  return {
+    ...job,
+    id: job.id || `${job.title || "job"}-${job.company || "company"}`,
+    company: displayCompany,
+    display_company: displayCompany,
+    company_name: job.company_name || "",
+    company_known: Boolean(job.company_known),
+    location: job.location || "Konum belirtilmemiş",
+    location_label: job.location_label || job.location || "Konum belirtilmemiş",
+    industry: job.industry || "Sektör belirtilmemiş",
+    department: job.department || "",
+    employment_type: job.employment_type || "",
+    required_experience: job.required_experience || "",
+    required_education: job.required_education || "",
+    function: job.function || "",
+    description: job.description || "",
+    requirements: job.requirements || "",
+    benefits: job.benefits || "",
+    distance_km:
+      typeof job.distance_km === "number" ? job.distance_km : null,
+    work_model: job.work_model || "Ofis",
+    salary_range: job.salary_range || "Belirtilmemiş",
+    match_score:
+      typeof job.match_score === "number"
+        ? job.match_score
+        : typeof job.uyum === "number"
+          ? job.uyum
+          : 0,
+    matched_skills: Array.isArray(job.matched_skills) ? job.matched_skills : [],
+    missing_skills: Array.isArray(job.missing_skills) ? job.missing_skills : [],
+    map_url:
+      job.map_url ||
+      `https://www.openstreetmap.org/search?query=${encodeURIComponent(
+        [job.company, job.title, job.location].filter(Boolean).join(" ")
+      )}`
+  };
+}
+
 function normalizeAnalysisResponse(response) {
   const topJobs = Array.isArray(response.top5_jobs) ? response.top5_jobs : [];
   const alternativeJobs = Array.from(
@@ -80,15 +150,59 @@ function normalizeAnalysisResponse(response) {
 
   return {
     ...response,
+    matched_skills: Array.isArray(response.matched_skills)
+      ? response.matched_skills
+      : [],
+    missing_skills: Array.isArray(response.missing_skills)
+      ? response.missing_skills
+      : [],
     alternative_jobs:
-      alternativeJobs.length > 0
+      Array.isArray(response.alternative_jobs) && response.alternative_jobs.length > 0
+        ? response.alternative_jobs
+        : alternativeJobs.length > 0
         ? alternativeJobs
         : [response.best_job?.title].filter(Boolean),
     nearby_jobs: Array.isArray(response.nearby_jobs)
-      ? response.nearby_jobs
-      : mockAnalysis.nearby_jobs,
+      ? response.nearby_jobs.map(normalizeJob)
+      : [],
+    top5_jobs: topJobs.map(normalizeJob),
     market_info: response.market_info || buildMarketInfo(response)
   };
+}
+
+function getBrowserLocation() {
+  if (!("geolocation" in navigator)) {
+    return Promise.resolve({});
+  }
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          user_lat: position.coords.latitude,
+          user_lon: position.coords.longitude
+        });
+      },
+      () => resolve({}),
+      {
+        enableHighAccuracy: false,
+        maximumAge: 10 * 60 * 1000,
+        timeout: 3000
+      }
+    );
+  });
+}
+
+async function readErrorMessage(response, fallback) {
+  try {
+    const payload = await response.json();
+    if (typeof payload.detail === "string") {
+      return payload.detail;
+    }
+  } catch {
+    // Fall through to the UI-safe fallback.
+  }
+  return fallback;
 }
 
 export async function uploadCv(file) {
@@ -103,6 +217,7 @@ export async function uploadCv(file) {
 
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("session_id", getSessionId());
 
   const response = await fetch(`${API_BASE_URL}/upload-cv`, {
     method: "POST",
@@ -110,7 +225,7 @@ export async function uploadCv(file) {
   });
 
   if (!response.ok) {
-    throw new Error("CV yükleme başarısız oldu.");
+    throw new Error(await readErrorMessage(response, "CV yükleme başarısız oldu."));
   }
 
   return response.json();
@@ -122,16 +237,21 @@ export async function analyzeCvJob(jobText, fileName) {
     return buildMockAnalysis(jobText, fileName);
   }
 
+  const locationPayload = await getBrowserLocation();
   const response = await fetch(`${API_BASE_URL}/analyze`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ job_text: jobText })
+    body: JSON.stringify({
+      session_id: getSessionId(),
+      job_text: jobText,
+      ...locationPayload
+    })
   });
 
   if (!response.ok) {
-    throw new Error("Analiz isteği başarısız oldu.");
+    throw new Error(await readErrorMessage(response, "Analiz isteği başarısız oldu."));
   }
 
   return normalizeAnalysisResponse(await response.json());

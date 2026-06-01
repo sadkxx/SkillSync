@@ -1,34 +1,50 @@
 """
-In-memory CV session for the current API process.
+In-memory CV sessions for the current API process.
 
-Production note: replace with Redis or DB-backed sessions keyed by user/session id.
+This avoids CV mix-ups between browser tabs/users without adding login.
+Production note: replace with Redis or DB-backed sessions if persistence or
+multi-process deployment is needed.
 """
 
 from typing import Optional
 
-_cv_text: Optional[str] = None
-_job_text: Optional[str] = None
+DEFAULT_SESSION_ID = "default"
+
+_sessions: dict[str, dict[str, Optional[str]]] = {}
 
 
-def set_cv(text: str) -> None:
-    global _cv_text
-    _cv_text = text
+def _normalize_session_id(session_id: Optional[str]) -> str:
+    value = session_id.strip() if session_id and session_id.strip() else ""
+    return value[:128] or DEFAULT_SESSION_ID
 
 
-def set_job_text(text: Optional[str]) -> None:
-    global _job_text
-    _job_text = text.strip() if text and text.strip() else None
+def _get_session(session_id: Optional[str]) -> dict[str, Optional[str]]:
+    key = _normalize_session_id(session_id)
+    if key not in _sessions:
+        _sessions[key] = {"cv_text": None, "job_text": None}
+    return _sessions[key]
 
 
-def get_cv() -> Optional[str]:
-    return _cv_text
+def set_cv(text: Optional[str], session_id: Optional[str] = None) -> None:
+    _get_session(session_id)["cv_text"] = text
 
 
-def get_job_text() -> Optional[str]:
-    return _job_text
+def set_job_text(text: Optional[str], session_id: Optional[str] = None) -> None:
+    _get_session(session_id)["job_text"] = text.strip() if text and text.strip() else None
 
 
-def clear() -> None:
-    global _cv_text, _job_text
-    _cv_text = None
-    _job_text = None
+def get_cv(session_id: Optional[str] = None) -> Optional[str]:
+    return _get_session(session_id)["cv_text"]
+
+
+def get_job_text(session_id: Optional[str] = None) -> Optional[str]:
+    return _get_session(session_id)["job_text"]
+
+
+def clear(session_id: Optional[str] = None) -> None:
+    key = _normalize_session_id(session_id)
+    _sessions.pop(key, None)
+
+
+def clear_all() -> None:
+    _sessions.clear()

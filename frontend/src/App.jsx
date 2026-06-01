@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { LayoutGroup, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -15,7 +17,6 @@ import {
   LocateFixed,
   LoaderCircle,
   MapPin,
-  Navigation,
   Radar,
   ScanSearch,
   Sparkles,
@@ -26,7 +27,6 @@ import {
 import { Navbar } from "./components/ui/mini-navbar";
 import { Boxes } from "./components/ui/background-boxes";
 import Pricing from "./components/ui/pricing-base";
-import { sampleJobText } from "./data/mockAnalysis";
 import { analyzeCvJob, uploadCv } from "./services/analysisService";
 
 const processSteps = [
@@ -105,16 +105,16 @@ function StatCard({ icon: Icon, label, value, tone }) {
   };
 
   return (
-    <div className="min-w-0 rounded-[22px] border border-white/60 bg-white/80 p-4 shadow-panel backdrop-blur sm:rounded-[28px] sm:p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <span className="min-w-0 text-xs font-medium uppercase tracking-[0.14em] text-slate sm:text-sm sm:tracking-[0.18em]">
+    <div className="min-w-0 rounded-[20px] border border-white/60 bg-white/80 p-3 shadow-panel backdrop-blur sm:rounded-[24px] sm:p-4">
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        <span className="min-w-0 text-[11px] font-medium uppercase tracking-[0.12em] text-slate sm:text-xs sm:tracking-[0.16em]">
           {label}
         </span>
-        <div className={`shrink-0 rounded-full border px-3 py-2 ${toneMap[tone]}`}>
-          <Icon size={18} />
+        <div className={`shrink-0 rounded-full border px-2.5 py-1.5 ${toneMap[tone]}`}>
+          <Icon size={16} />
         </div>
       </div>
-      <div className="break-words font-display text-3xl font-bold leading-tight text-ink sm:text-4xl">
+      <div className="break-words font-display text-2xl font-bold leading-tight text-ink sm:text-3xl">
         {value}
       </div>
     </div>
@@ -224,7 +224,210 @@ function extractFocusAreas(jobText, missingSkills) {
   return merged.slice(0, 6);
 }
 
-function JobMapPanel({ jobs, className = "" }) {
+function getMapPoints(jobs, userLocation) {
+  const jobPoints = (Array.isArray(jobs) ? jobs : [])
+    .map((job, index) => ({
+      id: job.id || `job-${index}`,
+      type: "job",
+      label: String(index + 1),
+      job,
+      title: job.title,
+      company: job.company_known ? job.company : job.display_company || job.industry,
+      meta: [job.location_label || job.location, job.industry].filter(Boolean).join(" · "),
+      matchScore: job.match_score,
+      distance: job.distance_km,
+      lat: Number(job.lat),
+      lon: Number(job.lon)
+    }))
+    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+
+  const userLat = Number(userLocation?.lat);
+  const userLon = Number(userLocation?.lon);
+  if (Number.isFinite(userLat) && Number.isFinite(userLon)) {
+    return [
+      {
+        id: "user-location",
+        type: "user",
+        label: "Sen",
+        title: "Senin konumun",
+        company: "Analiz için kullanılan konum",
+        lat: userLat,
+        lon: userLon
+      },
+      ...jobPoints
+    ];
+  }
+
+  return jobPoints;
+}
+
+function getMapBounds(points) {
+  const validPoints = points.filter(
+    (point) => Number.isFinite(point.lat) && Number.isFinite(point.lon)
+  );
+
+  if (validPoints.length === 0) {
+    return null;
+  }
+
+  const lats = validPoints.map((point) => point.lat);
+  const lons = validPoints.map((point) => point.lon);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLon = Math.min(...lons);
+  const maxLon = Math.max(...lons);
+  const latPad = Math.max((maxLat - minLat) * 0.2, 0.12);
+  const lonPad = Math.max((maxLon - minLon) * 0.2, 0.12);
+
+  return {
+    left: minLon - lonPad,
+    right: maxLon + lonPad,
+    bottom: minLat - latPad,
+    top: maxLat + latPad
+  };
+}
+
+function formatDistance(distance) {
+  return typeof distance === "number" ? `${distance} km` : "Mesafe yok";
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function createMapIcon(point) {
+  const isUser = point.type === "user";
+  return L.divIcon({
+    className: "",
+    iconSize: isUser ? [42, 42] : [36, 42],
+    iconAnchor: isUser ? [21, 21] : [18, 39],
+    popupAnchor: [0, -34],
+    html: `
+      <div class="${isUser ? "skillsync-user-marker" : "skillsync-job-marker"}">
+        <span>${escapeHtml(point.label)}</span>
+      </div>
+    `
+  });
+}
+
+function pointTooltip(point) {
+  if (point.type === "user") {
+    return `
+      <div class="skillsync-map-tooltip-body">
+        <strong>${escapeHtml(point.title)}</strong>
+        <span>${escapeHtml(point.company)}</span>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="skillsync-map-tooltip-body">
+      <strong>${escapeHtml(point.title)}</strong>
+      <span>${escapeHtml(point.meta)}</span>
+      <em>%${escapeHtml(point.matchScore)} · ${escapeHtml(formatDistance(point.distance))}</em>
+    </div>
+  `;
+}
+
+function LeafletJobMap({ jobs, userLocation, expanded = false, onSelectJob }) {
+  const mapNodeRef = useRef(null);
+  const mapRef = useRef(null);
+  const layerRef = useRef(null);
+  const points = getMapPoints(jobs, userLocation);
+
+  useEffect(() => {
+    if (!mapNodeRef.current || mapRef.current) return;
+
+    mapRef.current = L.map(mapNodeRef.current, {
+      zoomControl: true,
+      scrollWheelZoom: true,
+      attributionControl: true,
+    }).setView([41.0082, 28.9784], 11);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(mapRef.current);
+
+    layerRef.current = L.layerGroup().addTo(mapRef.current);
+
+    return () => {
+      mapRef.current?.remove();
+      mapRef.current = null;
+      layerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || !layerRef.current) return;
+
+    layerRef.current.clearLayers();
+    const validPoints = points.filter(
+      (point) => Number.isFinite(point.lat) && Number.isFinite(point.lon)
+    );
+
+    validPoints.forEach((point) => {
+      const marker = L.marker([point.lat, point.lon], {
+        icon: createMapIcon(point),
+        keyboard: true,
+        title: point.type === "user" ? "Senin konumun" : point.title,
+      });
+      const tooltipContent = pointTooltip(point);
+      const tooltipOptions = {
+        direction: "top",
+        offset: [0, -16],
+        opacity: 1,
+        sticky: true,
+        className: "skillsync-map-tooltip",
+      };
+      marker.bindTooltip(tooltipContent, tooltipOptions);
+      marker.bindPopup(tooltipContent, {
+        className: "skillsync-map-popup",
+        closeButton: true,
+      });
+      marker.on("popupopen", () => {
+        marker.closeTooltip();
+        marker.unbindTooltip();
+      });
+      marker.on("popupclose", () => {
+        marker.bindTooltip(tooltipContent, tooltipOptions);
+      });
+      marker.on("click", () => {
+        if (point.type === "job" && point.job) {
+          onSelectJob?.(point.job);
+        }
+      });
+      marker.addTo(layerRef.current);
+    });
+
+    if (validPoints.length > 1) {
+      const bounds = L.latLngBounds(validPoints.map((point) => [point.lat, point.lon]));
+      mapRef.current.fitBounds(bounds, {
+        padding: expanded ? [70, 70] : [36, 36],
+        maxZoom: 13,
+      });
+    } else if (validPoints.length === 1) {
+      mapRef.current.setView([validPoints[0].lat, validPoints[0].lon], 12);
+    } else {
+      mapRef.current.setView([41.0082, 28.9784], 11);
+    }
+
+    window.setTimeout(() => mapRef.current?.invalidateSize(), 80);
+  }, [points, expanded, onSelectJob]);
+
+  useEffect(() => {
+    window.setTimeout(() => mapRef.current?.invalidateSize(), 120);
+  }, [expanded]);
+
+  return <div ref={mapNodeRef} className="skillsync-leaflet-map h-full w-full" />;
+}
+
+function JobMapPanel({ jobs, userLocation, onSelectJob, className = "" }) {
   const nearbyJobs = Array.isArray(jobs) ? jobs : [];
   const bestJob = nearbyJobs[0];
 
@@ -269,7 +472,7 @@ function JobMapPanel({ jobs, className = "" }) {
             </div>
             <div className="px-2">
               <p className="font-display text-2xl font-semibold text-ink">
-                {bestJob.distance_km} km
+                {formatDistance(bestJob.distance_km)}
               </p>
               <p className="text-[11px] uppercase tracking-[0.16em] text-slate">
                 En yakın
@@ -281,16 +484,15 @@ function JobMapPanel({ jobs, className = "" }) {
 
       <div className="grid gap-0 2xl:grid-cols-[1.25fr_0.75fr]">
         <div className="relative min-h-[520px] overflow-hidden bg-[#dfeee7] sm:min-h-[680px]">
-          <iframe
-            title="Yakındaki iş ilanları haritası"
-            src="https://www.openstreetmap.org/export/embed.html?bbox=28.826293945312504%2C40.89010759455465%2C29.20669555664063%2C41.18878543406437&layer=mapnik&marker=41.0422%2C29.0066"
-            className="absolute inset-0 h-full w-full border-0"
-            loading="lazy"
+          <LeafletJobMap
+            jobs={nearbyJobs}
+            userLocation={userLocation}
+            expanded
+            onSelectJob={onSelectJob}
           />
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent_22%,transparent_74%,rgba(18,26,47,0.1))]" />
           <div className="absolute left-4 top-4 z-10 inline-flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full bg-white/88 px-4 py-2 text-xs font-semibold text-ink shadow-sm backdrop-blur">
-            <Navigation size={14} />
-            <span className="truncate">OpenStreetMap canlı görünüm</span>
+            <MapPin size={14} />
+            <span className="truncate">Etkileşimli OpenStreetMap</span>
           </div>
 
           <div className="absolute bottom-4 left-4 right-4 z-10 rounded-[24px] border border-ink/10 bg-white/90 p-4 shadow-panel backdrop-blur">
@@ -307,7 +509,7 @@ function JobMapPanel({ jobs, className = "" }) {
                   className="inline-flex items-center gap-2 rounded-full bg-ink px-3 py-2 text-xs font-semibold text-mist transition hover:bg-ink/90"
                 >
                   <MapPin size={13} />
-                  {job.company}
+                  {job.title}
                 </a>
               ))}
             </div>
@@ -325,7 +527,7 @@ function JobMapPanel({ jobs, className = "" }) {
                   <div className="mb-3 flex flex-wrap gap-2">
                     <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-mist">
                       <Building2 size={13} />
-                      <span className="truncate">{job.company}</span>
+                      <span className="truncate">{job.display_company || job.company}</span>
                     </span>
                     <span className="rounded-full bg-moss/18 px-3 py-1.5 text-xs font-semibold text-ink">
                       {job.work_model}
@@ -337,7 +539,7 @@ function JobMapPanel({ jobs, className = "" }) {
                   <p className="mt-2 flex min-w-0 items-start gap-2 text-sm leading-6 text-slate">
                     <MapPin size={15} className="mt-0.5 shrink-0" />
                     <span className="min-w-0 break-words">
-                      {job.location} · {job.distance_km} km
+                      {job.location_label || job.location} · {formatDistance(job.distance_km)}
                     </span>
                   </p>
                 </div>
@@ -390,6 +592,151 @@ function JobMapPanel({ jobs, className = "" }) {
               )}
             </article>
           ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function JobDetailPanel({ job, panelRef }) {
+  if (!job) {
+    return null;
+  }
+
+  const details = [
+    ["Çalışma tipi", job.employment_type],
+    ["Deneyim", job.required_experience],
+    ["Eğitim", job.required_education],
+    ["Departman", job.department],
+    ["Fonksiyon", job.function],
+    ["Maaş", job.salary_range && job.salary_range !== "Belirtilmemis" ? job.salary_range : ""],
+  ].filter(([, value]) => value && String(value).trim());
+
+  const textSections = [
+    ["İlan açıklaması", job.description],
+    ["Aranan özellikler", job.requirements],
+    ["Yan haklar", job.benefits],
+  ].filter(([, value]) => value && String(value).trim());
+
+  return (
+    <section
+      ref={panelRef}
+      className="w-full min-w-0 overflow-hidden rounded-[30px] border border-ink/10 bg-white text-ink shadow-panel"
+    >
+      <div className="border-b border-ink/10 bg-[#fffaf2] px-5 py-6 sm:px-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate">
+              Seçili ilan detayı
+            </p>
+            <h3 className="mt-2 break-words font-display text-2xl font-semibold leading-tight text-ink sm:text-3xl">
+              {job.title}
+            </h3>
+            <p className="mt-3 text-sm font-semibold text-ember">
+              {job.display_company || job.company} · {job.location_label || job.location}
+            </p>
+          </div>
+          <div className="grid shrink-0 grid-cols-2 gap-2 text-center sm:grid-cols-3">
+            <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+              <p className="font-display text-2xl font-bold text-ember">
+                %{job.match_score}
+              </p>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-slate">
+                Uyum
+              </p>
+            </div>
+            <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+              <p className="font-display text-2xl font-bold text-ink">
+                {formatDistance(job.distance_km)}
+              </p>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-slate">
+                Mesafe
+              </p>
+            </div>
+            <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+              <p className="font-display text-2xl font-bold text-ink">
+                {job.work_model || "Ofis"}
+              </p>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-slate">
+                Model
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[0.72fr_1.28fr]">
+        <aside className="space-y-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate">
+              Özet bilgiler
+            </p>
+            <div className="mt-3 grid gap-2">
+              {details.length > 0 ? details.map(([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-2xl border border-ink/10 bg-[#f7fbf8] px-4 py-3"
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate">
+                    {label}
+                  </p>
+                  <p className="mt-1 break-words text-sm font-semibold text-ink">
+                    {value}
+                  </p>
+                </div>
+              )) : (
+                <div className="rounded-2xl border border-dashed border-ink/15 bg-[#f7fbf8] px-4 py-5 text-sm leading-6 text-slate">
+                  Bu ilan için ek meta veri bulunamadı.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {(job.matched_skills?.length > 0 || job.missing_skills?.length > 0) && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate">
+                Beceri eşleşmesi
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(job.matched_skills || []).slice(0, 8).map((skill) => (
+                  <span
+                    key={`detail-match-${skill}`}
+                    className="rounded-full border border-moss/25 bg-moss/12 px-3 py-1.5 text-xs font-semibold capitalize text-ink"
+                  >
+                    {skill}
+                  </span>
+                ))}
+                {(job.missing_skills || []).slice(0, 5).map((skill) => (
+                  <span
+                    key={`detail-missing-${skill}`}
+                    className="rounded-full border border-ember/20 bg-ember/10 px-3 py-1.5 text-xs font-semibold capitalize text-ember"
+                  >
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </aside>
+
+        <div className="space-y-4">
+          {textSections.length > 0 ? textSections.map(([title, value]) => (
+            <article
+              key={title}
+              className="rounded-[24px] border border-ink/10 bg-[#fffaf2] p-5"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate">
+                {title}
+              </p>
+              <p className="mt-3 break-words text-sm leading-7 text-ink">
+                {value}
+              </p>
+            </article>
+          )) : (
+            <article className="rounded-[24px] border border-dashed border-ink/15 bg-[#fffaf2] p-5 text-sm leading-7 text-slate">
+              Bu ilanda açıklama veya gereksinim metni bulunamadı. Yine de rol, lokasyon ve uyum skoru öneri için kullanılabilir.
+            </article>
+          )}
         </div>
       </div>
     </section>
@@ -571,8 +918,8 @@ function LandingPage({ pathname, onNavigate }) {
                 Üç adımda başvuru kararı.
               </h2>
               <p className="mt-4 text-sm leading-7 text-white/68">
-                Backend bağlandığında ilan havuzu ve konum verisi canlı gelecek.
-                Şimdilik ekran, kullanılacak sonuç yapısını mock veriyle gösteriyor.
+                CV'ni ve ilan metnini yükle; uyum skoru, eksik beceriler ve
+                konuma göre öne çıkan ilanları tek raporda incele.
               </p>
               <button
                 type="button"
@@ -656,7 +1003,7 @@ function LandingPage({ pathname, onNavigate }) {
 
 function AnalyzePage() {
   const [selectedFile, setSelectedFile] = useState(null);
-  const [jobText, setJobText] = useState(sampleJobText);
+  const [jobText, setJobText] = useState("");
   const [uploadMessage, setUploadMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -664,10 +1011,18 @@ function AnalyzePage() {
   const [confirmAction, setConfirmAction] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState("");
+  const [selectedNearbyJob, setSelectedNearbyJob] = useState(null);
+  const jobTextareaRef = useRef(null);
+  const jobDetailRef = useRef(null);
 
   const focusAreas = analysis
     ? extractFocusAreas(jobText, analysis.missing_skills)
     : [];
+  const nearbyJobs = Array.isArray(analysis?.nearby_jobs)
+    ? analysis.nearby_jobs
+    : [];
+  const firstNearbyJob = nearbyJobs[0];
+  const userLocation = analysis?.user_location || null;
   const cvMeta = selectedFile
     ? {
         name: selectedFile.name,
@@ -680,6 +1035,29 @@ function AnalyzePage() {
 
   if (selectedFile || jobText.trim()) {
     readiness = selectedFile && jobText.trim() ? 100 : 50;
+  }
+
+  function handleSelectNearbyJob(job) {
+    setSelectedNearbyJob(job);
+    window.setTimeout(() => {
+      jobDetailRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }, 80);
+  }
+
+  function resizeJobTextarea() {
+    const textarea = jobTextareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }
+
+  function handleJobTextChange(event) {
+    setJobText(event.target.value);
+    window.requestAnimationFrame(resizeJobTextarea);
   }
 
   async function handleUpload(file) {
@@ -719,6 +1097,7 @@ function AnalyzePage() {
     try {
       const result = await analyzeCvJob(jobText, selectedFile.name);
       setAnalysis(result);
+      setSelectedNearbyJob(null);
       setIsMapExpanded(false);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (analysisError) {
@@ -741,6 +1120,7 @@ function AnalyzePage() {
     setUploadMessage("");
     setError("");
     setAnalysis(null);
+    setSelectedNearbyJob(null);
     setIsMapExpanded(false);
     setConfirmAction(null);
   }
@@ -749,6 +1129,7 @@ function AnalyzePage() {
     setJobText("");
     setError("");
     setAnalysis(null);
+    setSelectedNearbyJob(null);
     setIsMapExpanded(false);
     setConfirmAction(null);
   }
@@ -823,10 +1204,6 @@ function AnalyzePage() {
                 CV ve ilan eşleşmesini
                 <span className="block text-gold">tek ekranda incele.</span>
               </h1>
-              <p className="mt-4 max-w-xl text-base leading-8 text-white/68">
-                Öz geçmişini yükle, ilan metnini ekle ve sistemin sunduğu uyum
-                raporunu anında incele.
-              </p>
             </div>
 
             <div className="grid min-w-0 gap-4 sm:grid-cols-3">
@@ -866,7 +1243,7 @@ function AnalyzePage() {
             layoutId="analysis-form"
             transition={{ layout: { type: "spring", stiffness: 400, damping: 35 } }}
             onSubmit={handleAnalyze}
-            className={analysis ? "contents" : "min-w-0 rounded-[28px] border border-ink/10 bg-white/90 p-5 shadow-panel backdrop-blur sm:rounded-[32px] sm:p-6"}
+            className="contents"
           >
             {analysis ? (
               <>
@@ -962,66 +1339,105 @@ function AnalyzePage() {
               </>
             ) : (
               <>
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="shrink-0 rounded-2xl bg-ink p-3 text-mist">
-                    <Upload size={20} />
+                <motion.div
+                  layout
+                  layoutId="cv-upload-card"
+                  transition={{ layout: { type: "spring", stiffness: 400, damping: 35 } }}
+                  className="min-w-0 rounded-[28px] border border-ink/10 bg-white/90 p-5 shadow-panel backdrop-blur sm:rounded-[32px] sm:p-6"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="shrink-0 rounded-2xl bg-ink p-3 text-mist">
+                      <Upload size={20} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.18em] text-slate sm:text-sm sm:tracking-[0.22em]">
+                        CV dosyası
+                      </p>
+                      <h2 className="font-display text-xl font-semibold leading-tight text-ink sm:text-2xl">
+                        Öz geçmişini yükle
+                      </h2>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate sm:text-sm sm:tracking-[0.22em]">
-                      Başlangıç
-                    </p>
-                    <h2 className="font-display text-xl font-semibold leading-tight text-ink sm:text-2xl">
-                      CV ve iş ilanı girişi
-                    </h2>
-                  </div>
-                </div>
 
-                <label className="mt-8 block">
-                  <span className="mb-3 block text-sm font-semibold uppercase tracking-[0.18em] text-slate">
-                    CV dosyası
-                  </span>
-                  <div className="min-w-0 rounded-[24px] border border-dashed border-ink/25 bg-[#f8f2e7] p-4 sm:rounded-[28px] sm:p-5">
-                    <input
-                      type="file"
-                      accept=".pdf,.doc,.docx"
-                      className="block w-full min-w-0 text-sm text-ink file:mr-4 file:rounded-full file:border-0 file:bg-ink file:px-4 file:py-3 file:text-sm file:font-semibold file:text-mist hover:file:bg-ink/90"
-                      onChange={(event) => handleUpload(event.target.files?.[0])}
-                    />
-                    <p className="mt-3 text-sm leading-6 text-slate">
-                      PDF ve DOCX formatları desteklenir.
-                    </p>
-                  </div>
-                </label>
+                  <label className="mt-8 block">
+                    <span className="mb-3 block text-sm font-semibold uppercase tracking-[0.18em] text-slate">
+                      Dosya seç
+                    </span>
+                    <div className="min-w-0 rounded-[24px] border border-dashed border-ink/25 bg-[#f8f2e7] p-4 sm:rounded-[28px] sm:p-5">
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        className="block w-full min-w-0 text-sm text-ink file:mr-4 file:rounded-full file:border-0 file:bg-ink file:px-4 file:py-3 file:text-sm file:font-semibold file:text-mist hover:file:bg-ink/90"
+                        onChange={(event) => handleUpload(event.target.files?.[0])}
+                      />
+                      <p className="mt-3 text-sm leading-6 text-slate">
+                        PDF ve DOCX formatları desteklenir.
+                      </p>
+                    </div>
+                  </label>
 
-                <label className="mt-6 block">
-                  <span className="mb-3 block text-sm font-semibold uppercase tracking-[0.18em] text-slate">
-                    İş ilanı metni
-                  </span>
-                  <textarea
-                    value={jobText}
-                    onChange={(event) => setJobText(event.target.value)}
-                    rows={10}
-                    className="w-full min-w-0 resize-y rounded-[24px] border border-ink/10 bg-[#fffaf2] px-5 py-4 text-sm leading-7 text-ink outline-none transition placeholder:text-slate/60 focus:border-ember focus:ring-4 focus:ring-ember/10 sm:rounded-[28px]"
-                    placeholder="Başvurmak istediğin ilanın metnini buraya yapıştır."
-                  />
-                </label>
-
-                {(uploadMessage || error) && (
-                  <div className={`mt-5 flex items-start gap-3 rounded-2xl px-4 py-3 text-sm ${
-                    error ? "bg-red-50 text-red-700" : "bg-moss/15 text-ink"
-                  }`}>
-                    <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                    <span className="min-w-0 break-words">
-                      {error || uploadMessage}
+                  <div className="mt-6 inline-flex w-full min-w-0 items-center justify-center rounded-full border border-ink/10 px-5 py-3 text-sm text-slate">
+                    <span className="max-w-full truncate">
+                      {isUploading
+                        ? "CV yükleniyor"
+                        : uploadMessage
+                          ? uploadMessage
+                          : selectedFile
+                            ? `${selectedFile.name} seçildi`
+                          : "Henüz dosya seçilmedi"}
                     </span>
                   </div>
-                )}
+                </motion.div>
 
-                <div className="mt-8 flex min-w-0 flex-col gap-3 sm:flex-row">
+                <motion.div
+                  layout
+                  layoutId="job-text-card"
+                  transition={{ layout: { type: "spring", stiffness: 400, damping: 35 } }}
+                  className="flex min-w-0 flex-col rounded-[28px] border border-ink/10 bg-white/90 p-5 shadow-panel backdrop-blur sm:rounded-[32px] sm:p-6"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="shrink-0 rounded-2xl bg-ink p-3 text-mist">
+                      <FileText size={20} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.18em] text-slate sm:text-sm sm:tracking-[0.22em]">
+                        İş ilanı metni
+                      </p>
+                      <h2 className="font-display text-xl font-semibold leading-tight text-ink sm:text-2xl">
+                        İlanı yapıştır
+                      </h2>
+                    </div>
+                  </div>
+
+                  <label className="mt-8 block min-w-0">
+                    <span className="mb-3 block text-sm font-semibold uppercase tracking-[0.18em] text-slate">
+                      Başvurulacak ilan
+                    </span>
+                    <textarea
+                      ref={jobTextareaRef}
+                      value={jobText}
+                      onChange={handleJobTextChange}
+                      rows={3}
+                      className="max-h-[420px] w-full min-w-0 resize-none overflow-y-auto rounded-[24px] border border-ink/10 bg-[#fffaf2] px-5 py-4 text-sm leading-7 text-ink outline-none transition placeholder:text-slate/60 focus:border-ember focus:ring-4 focus:ring-ember/10 sm:rounded-[28px]"
+                      placeholder="Başvurmak istediğin ilanın metnini buraya yapıştır."
+                    />
+                  </label>
+
+                  {error && (
+                    <div className={`mt-5 flex items-start gap-3 rounded-2xl px-4 py-3 text-sm ${
+                      error ? "bg-red-50 text-red-700" : "bg-moss/15 text-ink"
+                    }`}>
+                      <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                      <span className="min-w-0 break-words">
+                        {error}
+                      </span>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     disabled={isUploading || isAnalyzing}
-                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-ember px-6 py-3 font-semibold text-white transition hover:bg-ember/90 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-4 inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-ember px-6 py-3 font-semibold text-white transition hover:bg-ember/90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isAnalyzing ? (
                       <>
@@ -1035,17 +1451,7 @@ function AnalyzePage() {
                       </>
                     )}
                   </button>
-
-                  <div className="inline-flex min-w-0 items-center justify-center rounded-full border border-ink/10 px-5 py-3 text-sm text-slate sm:flex-1">
-                    <span className="max-w-full truncate">
-                      {isUploading
-                        ? "CV yükleniyor"
-                        : selectedFile
-                          ? `${selectedFile.name} seçildi`
-                          : "Henüz dosya seçilmedi"}
-                    </span>
-                  </div>
-                </div>
+                </motion.div>
               </>
             )}
           </motion.form>
@@ -1092,7 +1498,7 @@ function AnalyzePage() {
                     </div>
                     <div className="rounded-2xl bg-white/8 px-2 py-2">
                       <p className="font-display text-xl font-semibold">
-                        {analysis.nearby_jobs?.length || 0}
+                        {nearbyJobs.length}
                       </p>
                       <p className="text-[10px] uppercase tracking-[0.12em] text-white/45">
                         İlan
@@ -1100,7 +1506,7 @@ function AnalyzePage() {
                     </div>
                     <div className="rounded-2xl bg-white/8 px-2 py-2">
                       <p className="font-display text-xl font-semibold">
-                        {analysis.alternative_jobs.length}
+                        {analysis.alternative_jobs?.length || 0}
                       </p>
                       <p className="text-[10px] uppercase tracking-[0.12em] text-white/45">
                         Rol
@@ -1177,24 +1583,30 @@ function AnalyzePage() {
                       </p>
                     </div>
                     <span className="rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-mist">
-                      {analysis.nearby_jobs?.length || 0} ilan
+                      {nearbyJobs.length} ilan
                     </span>
                   </div>
                   <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-                    {(analysis.nearby_jobs || []).map((job, index) => (
-                      <div
+                    {nearbyJobs.length > 0 ? nearbyJobs.map((job, index) => (
+                      <button
+                        type="button"
                         key={job.id}
-                        className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl bg-white/82 px-3 py-2 text-sm shadow-sm"
+                        onClick={() => handleSelectNearbyJob(job)}
+                        className={`grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl px-3 py-2 text-left text-sm shadow-sm transition hover:-translate-y-0.5 hover:bg-white ${
+                          selectedNearbyJob?.id === job.id
+                            ? "bg-white ring-2 ring-ember/30"
+                            : "bg-white/82"
+                        }`}
                       >
                         <span className="grid h-8 w-8 place-items-center rounded-full bg-ink text-xs font-bold text-mist">
                           {index + 1}
                         </span>
                         <div className="min-w-0">
                           <p className="truncate font-semibold text-ink">
-                            {job.company}
+                            {job.title}
                           </p>
                           <p className="truncate text-xs text-slate">
-                            {job.title} · {job.distance_km} km
+                            {job.display_company || job.company} · {job.location_label || job.location} · {formatDistance(job.distance_km)}
                           </p>
                         </div>
                         <div className="text-right">
@@ -1205,8 +1617,12 @@ function AnalyzePage() {
                             {job.work_model}
                           </p>
                         </div>
+                      </button>
+                    )) : (
+                      <div className="rounded-2xl bg-white/82 px-4 py-5 text-sm leading-6 text-slate shadow-sm">
+                        Konumlu ilan bulunamadı; dataset önerileri rol kartlarında gösteriliyor.
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -1249,8 +1665,6 @@ function AnalyzePage() {
                 layout
                 layoutId="map-card"
                 transition={{ layout: { type: "spring", stiffness: 400, damping: 35 } }}
-                onClick={() => setIsMapExpanded(true)}
-                whileHover={isMapExpanded ? undefined : { y: -3 }}
                 className={`min-h-[380px] overflow-hidden rounded-[28px] bg-[#eef7f1] text-left text-ink shadow-panel lg:min-h-0 ${
                   isMapExpanded
                     ? "lg:[grid-area:3/1/7/10]"
@@ -1258,33 +1672,24 @@ function AnalyzePage() {
                 }`}
               >
                 <div className="relative h-full min-h-0">
-                  <iframe
-                    title="Yakındaki uygun ilanlar haritası"
-                    src="https://www.openstreetmap.org/export/embed.html?bbox=28.826293945312504%2C40.89010759455465%2C29.20669555664063%2C41.18878543406437&layer=mapnik&marker=41.0422%2C29.0066"
-                    className="absolute inset-0 h-full w-full border-0"
-                    loading="lazy"
+                  <LeafletJobMap
+                    jobs={nearbyJobs}
+                    userLocation={userLocation}
+                    expanded={isMapExpanded}
+                    onSelectJob={handleSelectNearbyJob}
                   />
-                  {!isMapExpanded && (
-                    <button
-                      type="button"
-                      aria-label="Haritayı genişlet"
-                      className="absolute inset-0 z-10 cursor-zoom-in bg-transparent"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setIsMapExpanded(true);
-                      }}
-                    />
-                  )}
                   <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.1),transparent_28%,rgba(18,26,47,0.12))]" />
                   <div className="pointer-events-none absolute left-4 top-4 rounded-2xl bg-white/92 px-3 py-2 shadow-sm backdrop-blur">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate">
                       En yakın
                     </p>
                     <p className="mt-1 font-display text-lg font-semibold">
-                      {analysis.nearby_jobs?.[0]?.company || "Yakın ilan"}
+                      {firstNearbyJob?.title || "Konumlu ilan bulunamadı"}
                     </p>
                     <p className="mt-1 text-sm font-semibold text-ember">
-                      {analysis.nearby_jobs?.[0]?.distance_km || "4.2"} km · {analysis.nearby_jobs?.[0]?.work_model || "Hibrit"}
+                      {firstNearbyJob
+                        ? `${firstNearbyJob.location_label || firstNearbyJob.location} · ${formatDistance(firstNearbyJob.distance_km)}`
+                        : "Dataset önerileri listeleniyor"}
                     </p>
                   </div>
                   <button
@@ -1293,7 +1698,7 @@ function AnalyzePage() {
                       event.stopPropagation();
                       setIsMapExpanded((current) => !current);
                     }}
-                    className="absolute bottom-4 right-4 z-20 rounded-full bg-ink px-4 py-2 text-xs font-semibold text-mist shadow-panel transition hover:bg-ink/90 focus:outline-none focus:ring-4 focus:ring-ember/30"
+                    className="absolute bottom-12 right-4 z-[500] min-w-[92px] whitespace-nowrap rounded-full bg-ink px-5 py-2.5 text-center text-xs font-semibold text-mist shadow-panel transition hover:bg-ink/90 focus:outline-none focus:ring-4 focus:ring-ember/30 sm:bottom-5 sm:right-5"
                     aria-expanded={isMapExpanded}
                   >
                     {isMapExpanded ? "Küçült" : "Genişlet"}
@@ -1316,14 +1721,14 @@ function AnalyzePage() {
                         Önerilen roller
                       </p>
                       <p className="mt-2 font-display text-xl font-semibold leading-tight">
-                        {analysis.alternative_jobs[0]}
+                        {analysis.alternative_jobs?.[0] || analysis.best_job?.title || "Rol önerisi bulunamadı"}
                       </p>
                     </div>
                     <BriefcaseBusiness size={22} className="shrink-0 text-ember" />
                   </div>
 
                   <div className="space-y-2">
-                    {analysis.alternative_jobs.slice(1, 3).map((job, index) => (
+                    {(analysis.alternative_jobs || []).slice(1, 3).map((job, index) => (
                       <div
                         key={job}
                         className="flex items-center justify-between gap-3 rounded-2xl bg-ink/5 px-3 py-2"
@@ -1342,12 +1747,15 @@ function AnalyzePage() {
 
           </>
         ) : (
-          <div className="min-w-0">
-            <EmptyState />
-          </div>
+          null
         )}
         </LayoutGroup>
       </section>
+      {analysis && selectedNearbyJob && (
+        <section className="relative z-10 mx-auto max-w-7xl px-5 pb-10 sm:px-6 lg:px-8">
+          <JobDetailPanel job={selectedNearbyJob} panelRef={jobDetailRef} />
+        </section>
+      )}
       </main>
     </>
   );

@@ -19,30 +19,30 @@ def _extension(filename: str) -> str:
 
 def validate_cv_text(text: str) -> str:
     if not text or not text.strip():
-        raise ValueError("CV metni cikarilamadi veya dosya bos.")
+        raise ValueError("CV metni çıkarılamadı veya dosya boş.")
     cleaned = text.strip()
     if len(cleaned) < MIN_CV_TEXT_LENGTH:
         raise ValueError(
-            f"CV metni cok kisa (en az {MIN_CV_TEXT_LENGTH} karakter gerekli)."
+            f"CV metni çok kısa (en az {MIN_CV_TEXT_LENGTH} karakter gerekli)."
         )
     return cleaned
 
 
 async def parse_file(file: UploadFile) -> str:
     if not file.filename:
-        raise ValueError("Dosya adi gerekli.")
+        raise ValueError("Dosya adı gerekli.")
 
     ext = _extension(file.filename)
     if not ext:
-        raise ValueError("Sadece PDF veya DOCX dosyasi yukleyebilirsiniz.")
+        raise ValueError("Sadece PDF veya DOCX dosyası yükleyebilirsiniz.")
 
     content = await file.read()
     if not content:
-        raise ValueError("Dosya bos.")
+        raise ValueError("Dosya boş.")
 
     if len(content) > MAX_UPLOAD_BYTES:
         raise ValueError(
-            f"Dosya cok buyuk (maksimum {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)."
+            f"Dosya çok büyük (maksimum {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)."
         )
 
     if ext == ".pdf":

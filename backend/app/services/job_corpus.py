@@ -96,10 +96,15 @@ def load_jobs_dataframe_from_db(db: Session, limit: int = 500) -> pd.DataFrame:
     for j in rows:
         records.append(
             {
+                "id": j.id,
                 "job_id": j.source_id,
                 "title": j.title,
+                "company": j.company or "",
                 "location": j.location_raw or j.location or "",
                 "industry": j.industry or "",
+                "url": j.url or "",
+                "lat": j.latitude,
+                "lon": j.longitude,
                 "description": j.description or "",
                 "requirements": j.requirements or "",
                 "full_text": j.full_text or "",
